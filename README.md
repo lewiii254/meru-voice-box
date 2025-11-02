@@ -316,6 +316,9 @@ The database is automatically configured with migrations. The schema includes:
    - Navigate to the "Track Status" page
    - Enter your tracking code
    - View current status and any official responses
+   - **NEW**: View status history timeline
+   - **NEW**: See any attachments you uploaded
+   - **NEW**: Check public messages from administrators
 
 #### Understanding Status Levels
 
@@ -323,6 +326,29 @@ The database is automatically configured with migrations. The schema includes:
 - ⏳ **In Progress** - An administrator is actively working on your grievance
 - ✅ **Action Taken** - Actions have been completed; awaiting verification
 - 🔒 **Closed** - Your grievance has been resolved
+
+#### Viewing Status History (NEW)
+
+The **Status History** tab shows you:
+- Complete timeline of status changes
+- Timestamps for each status update
+- Visual progress indicators
+- Chronological history from submission to current status
+
+#### Checking Attachments (NEW)
+
+If you uploaded any files with your grievance:
+- Navigate to the **Attachments** tab
+- View all uploaded files
+- See file names, sizes, and upload timestamps
+- Files are securely stored and accessible only via your tracking code
+
+#### Public Messages (NEW)
+
+Check the **Messages** tab to:
+- See any public communications from administrators
+- Respond to information requests if needed
+- Track the conversation history
 
 ### For Administrators
 
@@ -348,11 +374,35 @@ The database is automatically configured with migrations. The schema includes:
    - Use **Private Notes** for internal communication (not visible to students)
    - Click "Update Grievance" to save changes
 
-3. **Best Practices**
+3. **Working with Status History (NEW)**
+   - View the **Status History** tab to see complete progression
+   - Status changes are automatically tracked with timestamps
+   - History shows who made changes (for authenticated users)
+   - Use this to understand grievance lifecycle
+
+4. **Managing File Attachments (NEW)**
+   - View all files uploaded by students in the **Attachments** tab
+   - Preview images directly in the browser
+   - Preview PDF documents in-browser
+   - Download any file for offline review
+   - Upload additional files if needed (e.g., evidence, reports)
+
+5. **Internal Communication (NEW)**
+   - Use the **Comments** tab to add internal notes and public messages
+   - Toggle **Public** switch to make messages visible to students
+   - Enable **Request more information** flag to prompt student response
+   - Private comments are only visible to other administrators
+   - Real-time updates: comments appear instantly for all admins
+   - View complete conversation history
+
+6. **Best Practices**
    - Respond promptly to new grievances
    - Keep status updated as you work on issues
    - Write clear, professional responses
    - Use private notes to track internal actions
+   - Request additional information via public comments when needed
+   - Review attachments before updating status
+   - Use status history to understand grievance progression
 
 ---
 
@@ -372,12 +422,73 @@ The database is automatically configured with migrations. The schema includes:
 | `response` | `text` | Nullable | Official public response from administration |
 | `private_notes` | `text` | Nullable | Internal notes for admin use only |
 
+### `status_history` Table (NEW)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `uuid` | Primary Key, Default: `gen_random_uuid()` | Unique identifier for each status change |
+| `grievance_id` | `uuid` | Foreign Key → `grievances.id`, ON DELETE CASCADE | Reference to parent grievance |
+| `old_status` | `text` | Nullable | Previous status (NULL for initial entry) |
+| `new_status` | `text` | Not Null, Check: valid status values | New status after change |
+| `changed_by` | `uuid` | Foreign Key → `auth.users.id` | User who made the change |
+| `changed_at` | `timestamp with time zone` | Default: `now()` | When the status changed |
+| `notes` | `text` | Nullable | Optional notes about the change |
+
+**Automatic Tracking**: Status changes are automatically recorded via database trigger `track_status_change()`.
+
+### `attachments` Table (NEW)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `uuid` | Primary Key, Default: `gen_random_uuid()` | Unique identifier for each attachment |
+| `grievance_id` | `uuid` | Foreign Key → `grievances.id`, ON DELETE CASCADE | Reference to parent grievance |
+| `file_name` | `text` | Not Null | Original filename |
+| `file_path` | `text` | Not Null | Storage path in Supabase Storage |
+| `file_type` | `text` | Not Null | MIME type (e.g., image/jpeg, application/pdf) |
+| `file_size` | `bigint` | Not Null | File size in bytes |
+| `uploaded_by` | `uuid` | Foreign Key → `auth.users.id` | User who uploaded (NULL for anonymous) |
+| `uploaded_at` | `timestamp with time zone` | Default: `now()` | Upload timestamp |
+
+**Storage Bucket**: Files stored in `grievance-attachments` bucket with 5MB size limit.
+
+### `comments` Table (NEW)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `uuid` | Primary Key, Default: `gen_random_uuid()` | Unique identifier for each comment |
+| `grievance_id` | `uuid` | Foreign Key → `grievances.id`, ON DELETE CASCADE | Reference to parent grievance |
+| `content` | `text` | Not Null | Comment text |
+| `is_public` | `boolean` | Default: `false` | Whether visible to students |
+| `is_request_info` | `boolean` | Default: `false` | Whether this is an info request |
+| `created_by` | `uuid` | Foreign Key → `auth.users.id` | Comment author (NULL for anonymous) |
+| `created_at` | `timestamp with time zone` | Default: `now()` | Creation timestamp |
+| `updated_at` | `timestamp with time zone` | Default: `now()` | Last update timestamp |
+
+**Real-time Updates**: Comments support real-time subscriptions via Supabase Realtime.
+
 ### Indexes
 
+**grievances table:**
 - Primary key index on `id`
 - Unique index on `tracking_code`
 - Index on `status` for faster filtering
 - Index on `submitted_at` for sorting
+
+**status_history table:**
+- Primary key index on `id`
+- Index on `grievance_id` for faster lookups
+- Index on `changed_at` for chronological sorting
+
+**attachments table:**
+- Primary key index on `id`
+- Index on `grievance_id` for faster lookups
+- Index on `uploaded_at` for sorting
+
+**comments table:**
+- Primary key index on `id`
+- Index on `grievance_id` for faster lookups
+- Index on `created_at` for chronological sorting
+- Index on `is_public` for filtering
 
 ---
 
@@ -611,23 +722,28 @@ Ensure these are set in your deployment platform:
 
 ### 🎨 UI/UX Enhancements
 
-#### 6. **🎯 Improved Status Tracker**
-- Visual progress timeline
-- Estimated resolution time
-- History of status changes
-- **Tech**: Custom timeline component
+#### 6. **🎯 Improved Status Tracker** ✅ IMPLEMENTED
+- ✅ Visual progress timeline with color-coded status indicators
+- ✅ Complete history of status changes with timestamps
+- ✅ Automatic tracking via database triggers
+- ✅ Accessible in both admin panel and public tracking page
+- **Tech**: Custom React timeline component, PostgreSQL triggers
 
-#### 7. **📸 File Attachments**
-- Allow students to upload evidence (images, PDFs)
-- Image preview in admin panel
-- File size limits and validation
-- **Tech**: Supabase Storage
+#### 7. **📸 File Attachments** ✅ IMPLEMENTED
+- ✅ Upload evidence files (JPEG, PNG, GIF, WebP images and PDFs)
+- ✅ Image and PDF preview in admin panel
+- ✅ 5MB file size limit with client-side validation
+- ✅ Secure file storage with access controls
+- ✅ Download functionality for all file types
+- **Tech**: Supabase Storage, Row-Level Security policies
 
-#### 8. **💬 Internal Communication**
-- Request more information from student (via tracking code)
-- Private messaging between admins
-- Comment threads on grievances
-- **Tech**: Supabase Realtime
+#### 8. **💬 Internal Communication** ✅ IMPLEMENTED
+- ✅ Request additional information from students via tracking code
+- ✅ Private admin-to-admin messaging
+- ✅ Public comment threads visible to students
+- ✅ Real-time updates using Supabase Realtime subscriptions
+- ✅ Info request flagging for better communication tracking
+- **Tech**: Supabase Realtime, PostgreSQL, Custom React components
 
 #### 9. **🎨 Dark Mode**
 - Toggle between light and dark themes

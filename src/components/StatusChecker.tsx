@@ -1,20 +1,25 @@
 import { useState } from "react";
-import { Search, Loader2, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { Search, Loader2, AlertCircle, Clock, CheckCircle, History, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatDate, getStatusVariant } from "@/lib/grievance-utils";
-import type { Grievance } from "@/types/grievance";
+import type { Grievance, StatusHistory, Comment } from "@/types/grievance";
+import StatusTimeline from "@/components/StatusTimeline";
+import AttachmentList from "@/components/AttachmentList";
 
 export default function StatusChecker() {
   const [trackingCode, setTrackingCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [grievance, setGrievance] = useState<Grievance | null>(null);
+  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+  const [publicComments, setPublicComments] = useState<Comment[]>([]);
   const [notFound, setNotFound] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -32,6 +37,8 @@ export default function StatusChecker() {
     setIsLoading(true);
     setNotFound(false);
     setGrievance(null);
+    setStatusHistory([]);
+    setPublicComments([]);
 
     try {
       const { data, error } = await supabase
@@ -51,6 +58,29 @@ export default function StatusChecker() {
         });
       } else {
         setGrievance(data as Grievance);
+
+        // Fetch status history
+        const { data: historyData } = await supabase
+          .from("status_history")
+          .select("*")
+          .eq("grievance_id", data.id)
+          .order("changed_at", { ascending: false });
+
+        if (historyData) {
+          setStatusHistory(historyData as StatusHistory[]);
+        }
+
+        // Fetch public comments
+        const { data: commentsData } = await supabase
+          .from("comments")
+          .select("*")
+          .eq("grievance_id", data.id)
+          .eq("is_public", true)
+          .order("created_at", { ascending: true });
+
+        if (commentsData) {
+          setPublicComments(commentsData as Comment[]);
+        }
       }
     } catch (error) {
       console.error("Error fetching grievance:", error);
@@ -120,56 +150,160 @@ export default function StatusChecker() {
       )}
 
       {grievance && (
-        <Card className="shadow-custom-lg border-0 gradient-card animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">{grievance.title}</CardTitle>
-                <CardDescription className="font-mono text-sm">
-                  Tracking Code: {grievance.tracking_code}
-                </CardDescription>
-              </div>
-              <Badge variant={getStatusVariant(grievance.status)} className="text-sm px-3 py-1">
-                {grievance.status}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Category</p>
-                <p className="font-medium">{grievance.category}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Submitted</p>
-                <p className="font-medium flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDate(grievance.submitted_at)}
-                </p>
-              </div>
-            </div>
-
-            <Separator />
-
-            {grievance.response ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-primary" />
-                  <p className="font-semibold text-primary">Official Response</p>
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="shadow-custom-lg border-0 gradient-card">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-xl">{grievance.title}</CardTitle>
+                  <CardDescription className="font-mono text-sm">
+                    Tracking Code: {grievance.tracking_code}
+                  </CardDescription>
                 </div>
-                <div className="bg-muted/50 p-4 rounded-lg border">
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{grievance.response}</p>
+                <Badge variant={getStatusVariant(grievance.status)} className="text-sm px-3 py-1">
+                  {grievance.status}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Category</p>
+                  <p className="font-medium">{grievance.category}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Submitted</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDate(grievance.submitted_at)}
+                  </p>
                 </div>
               </div>
-            ) : (
-              <div className="bg-muted/30 p-4 rounded-lg border border-dashed">
-                <p className="text-sm text-muted-foreground text-center">
-                  No official response yet. We're working on your grievance.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+              <Separator />
+
+              {grievance.response ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                    <p className="font-semibold text-primary">Official Response</p>
+                  </div>
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{grievance.response}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-muted/30 p-4 rounded-lg border border-dashed">
+                  <p className="text-sm text-muted-foreground text-center">
+                    No official response yet. We're working on your grievance.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Additional Information Tabs */}
+          <Tabs defaultValue="history" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="history" className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                <span className="hidden sm:inline">Status History</span>
+                <span className="sm:hidden">History</span>
+              </TabsTrigger>
+              <TabsTrigger value="attachments" className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">Attachments</span>
+                <span className="sm:hidden">Files</span>
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Messages</span>
+                <span className="sm:hidden">Chat</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="history" className="mt-4">
+              <Card className="shadow-custom-lg border-0 gradient-card">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    Status Timeline
+                  </CardTitle>
+                  <CardDescription>
+                    Track the progress of your grievance through each stage
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <StatusTimeline history={statusHistory} currentStatus={grievance.status} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="attachments" className="mt-4">
+              <Card className="shadow-custom-lg border-0 gradient-card">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                    Supporting Documents
+                  </CardTitle>
+                  <CardDescription>
+                    Files and evidence submitted with this grievance
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AttachmentList grievanceId={grievance.id} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="messages" className="mt-4">
+              <Card className="shadow-custom-lg border-0 gradient-card">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    Public Messages
+                  </CardTitle>
+                  <CardDescription>
+                    Communication between you and the administration
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {publicComments.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                      No public messages yet
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {publicComments.map((comment) => (
+                        <div
+                          key={comment.id}
+                          className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {comment.is_request_info && (
+                                <Badge variant="default" className="text-xs">
+                                  Info Request
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {comment.created_by ? "Admin" : "You"}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(comment.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
     </div>
   );
