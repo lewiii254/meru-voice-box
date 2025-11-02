@@ -44,8 +44,8 @@ WITH CHECK (
   AND created_by IS NULL
 );
 
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION public.update_updated_at()
+-- Function to update updated_at timestamp for comments
+CREATE OR REPLACE FUNCTION public.update_comments_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = now();
@@ -57,4 +57,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_comments_updated_at
 BEFORE UPDATE ON public.comments
 FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at();
+EXECUTE FUNCTION public.update_comments_updated_at();

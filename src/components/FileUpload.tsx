@@ -88,7 +88,9 @@ export default function FileUpload({
 
     try {
       for (const file of files) {
-        const fileName = `${grievanceId}/${Date.now()}-${file.name}`;
+        // Generate unique filename using crypto.randomUUID for better collision prevention
+        const uniqueId = crypto.randomUUID();
+        const fileName = `${grievanceId}/${uniqueId}-${file.name}`;
         
         // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
