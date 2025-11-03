@@ -14,6 +14,79 @@ export type Database = {
   }
   public: {
     Tables: {
+      attachments: {
+        Row: {
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          grievance_id: string
+          id: string
+          uploaded_at: string
+        }
+        Insert: {
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          grievance_id: string
+          id?: string
+          uploaded_at?: string
+        }
+        Update: {
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          file_type?: string
+          grievance_id?: string
+          id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_grievance_id_fkey"
+            columns: ["grievance_id"]
+            isOneToOne: false
+            referencedRelation: "grievances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          grievance_id: string
+          id: string
+          is_public: boolean
+          is_request_info: boolean
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          grievance_id: string
+          id?: string
+          is_public?: boolean
+          is_request_info?: boolean
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          grievance_id?: string
+          id?: string
+          is_public?: boolean
+          is_request_info?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_grievance_id_fkey"
+            columns: ["grievance_id"]
+            isOneToOne: false
+            referencedRelation: "grievances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grievances: {
         Row: {
           category: string
@@ -49,6 +122,41 @@ export type Database = {
           tracking_code?: string
         }
         Relationships: []
+      }
+      status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          grievance_id: string
+          id: string
+          new_status: string
+          old_status: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          grievance_id: string
+          id?: string
+          new_status: string
+          old_status?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          grievance_id?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_history_grievance_id_fkey"
+            columns: ["grievance_id"]
+            isOneToOne: false
+            referencedRelation: "grievances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

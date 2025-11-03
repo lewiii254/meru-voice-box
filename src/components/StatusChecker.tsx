@@ -287,7 +287,7 @@ export default function StatusChecker() {
                                 </Badge>
                               )}
                               <Badge variant="outline" className="text-xs">
-                                {comment.created_by ? "Admin" : "You"}
+                                Public Response
                               </Badge>
                             </div>
                             <span className="text-xs text-muted-foreground">

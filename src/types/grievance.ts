@@ -32,11 +32,10 @@ export interface GrievanceFormData {
 export interface StatusHistory {
   id: string;
   grievance_id: string;
-  old_status: GrievanceStatus | null;
-  new_status: GrievanceStatus;
+  old_status: string | null;
+  new_status: string;
   changed_by: string | null;
   changed_at: string;
-  notes: string | null;
 }
 
 export interface Attachment {
@@ -46,7 +45,6 @@ export interface Attachment {
   file_path: string;
   file_type: string;
   file_size: number;
-  uploaded_by: string | null;
   uploaded_at: string;
 }
 
@@ -56,7 +54,5 @@ export interface Comment {
   content: string;
   is_public: boolean;
   is_request_info: boolean;
-  created_by: string | null;
   created_at: string;
-  updated_at: string;
 }

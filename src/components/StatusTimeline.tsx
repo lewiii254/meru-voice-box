@@ -16,10 +16,10 @@ const statusIcons = {
 };
 
 const statusColors = {
-  "New": "text-blue-500",
-  "In Progress": "text-yellow-500",
-  "Action Taken": "text-green-500",
-  "Closed": "text-gray-500",
+  "New": "text-[hsl(var(--status-new))]",
+  "In Progress": "text-[hsl(var(--status-progress))]",
+  "Action Taken": "text-[hsl(var(--status-action))]",
+  "Closed": "text-[hsl(var(--status-closed))]",
 };
 
 export default function StatusTimeline({ history, currentStatus }: StatusTimelineProps) {
@@ -76,11 +76,6 @@ export default function StatusTimeline({ history, currentStatus }: StatusTimelin
                   <p className="text-xs text-muted-foreground">
                     {formatDate(item.changed_at)}
                   </p>
-                  {item.notes && (
-                    <p className="text-sm text-muted-foreground mt-2 bg-muted/50 p-2 rounded">
-                      {item.notes}
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
